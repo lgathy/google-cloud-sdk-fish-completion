@@ -63,8 +63,9 @@ function __call_argcomplete
    set -lx input $argv[1]
    set -lx COMP_POINT $argv[2]
    set -lx tokenStart $argv[3]
+   set -lx prefix $argv[4]
 
-   set -lx COMP_LINE (string sub -l $COMP_POINT -- $input)
+   set -lx COMP_LINE (string sub -l $tokenStart -- $input)
    set -lx words (string split ' ' -- (string sub -l $COMP_POINT -- $input))
    set -lx lastWord $words[-1]
 
@@ -81,29 +82,28 @@ function __call_argcomplete
    if test ! $rval
       if test (count $words) -gt 2 -a -n $lastWord
          # Fallback scenario 1: try to ignore the last word if it's not complete:
-         set -l lastWordLen (string length -- $lastWord)
-         set -l fallbackPos (math $COMP_POINT - $lastWordLen)
-         __call_argcomplete $input $fallbackPos $tokenStart
+         # Note: this can only happen in the first call on the stack, since we then fallback by words
+         set -l trimmed (__rtrim_unsafe $input $lastWord)
+         set -l fallbackPos (string length -- $trimmed)
+         __call_argcomplete $input $fallbackPos $fallbackPos ''
       end
       if test (count $words) -gt 3 -a -z $lastWord
-         # Fallback scenario 2: if last word is blank try ignore the prev word
+         # Fallback scenario 2: if last word is blank try fallback to the previous word
          set -l prevWordLen (string length -- $words[-2])
          set -l fallbackPos (math $COMP_POINT - $prevWordLen - 1)
-         __call_argcomplete $input $fallbackPos $tokenStart
+         __call_argcomplete $input $fallbackPos $tokenStart ''
          return
       end
    end
 
    set -l options (string split \n -- (string replace -a -r \v \n -- $rval))
-   set -l pattern (__right $input $COMP_POINT)
-   set -l drop (__substr $input $COMP_POINT $tokenStart)
+   set -l pattern (__substr $input $COMP_POINT $tokenStart)
 
    for opt in $options
-      set -l ignored (__ltrim_ifmatch $opt $pattern)
-      if test $status = 0
-         set -l match (__ltrim_unsafe $opt $drop)
+      set -l match (__ltrim_ifmatch $opt $pattern)
+      if test $status -eq 0
          set -l arg (string split -m 1 ' ' -- $match)[1]
-         echo $arg
+         echo "$prefix$arg"
       end
    end
 end
@@ -115,9 +115,29 @@ function __python_argcomplete
    set -l token (commandline -t)
    set -l input (commandline -cp)
    set -l fullLine (commandline -p)
-   set -l tokenStart (math (string length -- $input) - (string length -- $token))
+   set -l cursorAt (string length -- $input)
+   #set -l tokenStart (math $cursorAt - (string length -- $token))
 
-   __call_argcomplete $input $tokenStart $tokenStart
+   set -lx words (string split ' ' -- $input)
+   set -lx lastWord $words[-1]
+
+   set -lx prefix ''
+   if string match -q -- '*@*' $lastWord
+      if string match -q -- '* ssh *' $input
+         set -l parts (string split '@' $lastWord)
+         set prefix "$parts[1]@"
+         set words[-1] (string replace -- $prefix '' $lastWord)
+         set cursorAt (math $cursorAt - (string length -- $prefix))
+      end
+   end
+   if string match -q -- '--*=*' $lastWord
+      set -l parts (string split '=' -- $lastWord)
+      set words[-1] (string join ' ' -- $parts)
+      set prefix "$parts[1]="
+   end
+   set input (string join ' ' -- $words)
+
+   __call_argcomplete $input $cursorAt $cursorAt $prefix
 
 end
 
