@@ -108,7 +108,7 @@ function __call_argcomplete
    end
 end
 
-function __python_argcomplete
+function gcloud_sdk_argcomplete
 
    __log '$>' (date)
 
@@ -140,5 +140,3 @@ function __python_argcomplete
    __call_argcomplete $input $cursorAt $cursorAt $prefix
 
 end
-
-complete -x -c gcloud -a '(__python_argcomplete)'
