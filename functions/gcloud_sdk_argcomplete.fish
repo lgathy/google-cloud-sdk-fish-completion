@@ -96,10 +96,11 @@ function __call_argcomplete
       end
    end
 
-   set -l options (string split \n -- (string replace -a -r \v \n -- $rval))
+   set -l options (string split \v -- $rval)
    set -l pattern (__substr $input $COMP_POINT $tokenStart)
 
    for opt in $options
+      set opt (string replace -r '^(\w+)\\\\://' '$1://' -- $opt)
       set -l match (__ltrim_ifmatch $opt $pattern)
       if test $status -eq 0
          set -l arg (string split -m 1 ' ' -- $match)[1]
@@ -116,26 +117,32 @@ function gcloud_sdk_argcomplete
    set -l input (commandline -cp)
    set -l fullLine (commandline -p)
    set -l cursorAt (string length -- $input)
-   #set -l tokenStart (math $cursorAt - (string length -- $token))
 
    set -lx words (string split ' ' -- $input)
-   set -lx lastWord $words[-1]
 
    set -lx prefix ''
-   if string match -q -- '*@*' $lastWord
+   if string match -q -- '*@*' $words[-1]
       if string match -q -- '* ssh *' $input
-         set -l parts (string split '@' $lastWord)
+         set -l parts (string split '@' $words[-1])
          set prefix "$parts[1]@"
-         set words[-1] (string replace -- $prefix '' $lastWord)
+         set words[-1] (string replace -- $prefix '' $words[-1])
          set cursorAt (math $cursorAt - (string length -- $prefix))
       end
    end
-   if string match -q -- '--*=*' $lastWord
-      set -l parts (string split '=' -- $lastWord)
+   if string match -q -- '--*=*' $words[-1]
+      set -l parts (string split '=' -- $words[-1])
       set words[-1] (string join ' ' -- $parts)
       set prefix "$parts[1]="
    end
    set input (string join ' ' -- $words)
+   # well, this is a bit strage, but seemingly 8 \-s will actually print 1 \, a bit of escaping hell
+   set -l escaped (string replace -a -r '(\s\w+)://' '${1}\\\\\\\\://' -- $input)
+   set -l ilen (string length -- $input)
+   set -l elen (string length -- $escaped)
+   if test $elen -gt $ilen
+      set input $escaped
+      set cursorAt (math $cursorAt - $ilen + $elen)
+   end
 
    __call_argcomplete $input $cursorAt $cursorAt $prefix
 
