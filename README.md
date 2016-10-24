@@ -2,4 +2,4 @@
 Google Cloud Platform SDK command line utilities shell completion for fish
 
 ## Install
-Just copy all .fish files into ~/.config/fish/completions/ folder.
+Run install.sh to copy the files into your local fish config folder (~/.config/fish/).
