@@ -103,8 +103,14 @@ function __call_argcomplete
       set opt (string replace -r '^(\w+)\\\\://' '$1://' -- $opt)
       set -l match (__ltrim_ifmatch $opt $pattern)
       if test $status -eq 0
-         set -l arg (string split -m 1 ' ' -- $match)[1]
-         echo "$prefix$arg"
+         set -l args (string split -m 1 ' ' -- $match)
+         if test (count $args) -gt 1
+            echo -n "$prefix$args[1]"
+            echo -n -e "\t"
+            echo "$args[2]"
+         else
+            echo "$prefix$args[1]"
+         end
       end
    end
 end
